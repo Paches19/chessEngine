@@ -13,9 +13,6 @@ bool can_castle(const Board& board, int player, bool is_kingside);
 // Handles pawn promotion
 bool is_promotion(const Board& board, int x, int y);
 
-// Checks if a player is in check
-bool is_in_check(const Board& board, int player);
-
 // Checks if the current player is in checkmate
 bool is_checkmate(const Board& board, int player);
 

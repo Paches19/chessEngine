@@ -5,58 +5,21 @@
 bool is_check(const Board& board, int player)
 {
     // Check if any opposing piece is attacking the king
-    return false; // Placeholder
-}
-
-// Validates castling for kingside or queenside
-bool can_castle(const Board& board, int player, bool is_kingside)
-{
-    // Ensure there are no blocking pieces and king/rook haven’t moved
-    return false; // Placeholder
-}
-
-// Determines if a pawn is in a promotion position
-bool is_promotion(const Board& board, int x, int y)
-{
-    // Check if a pawn reached the last rank
-    return false; // Placeholder
-}
-
-// Helper function to find the player's king position on the board
-std::pair<int, int> find_king_position(const Board& board, int player)
-{
-    for (int x = 0; x < 8; ++x)
-	{
-        for (int y = 0; y < 8; ++y)
-		{
-            if (board.get_piece(x, y) == (player == 1 ? KING_WHITE : KING_BLACK))
-			{
-                return {x, y};
-            }
-        }
-    }
-    return {-1, -1}; // King not found (shouldn't happen in a valid game)
-}
-
-// Checks if the player's king is in check
-bool is_in_check(const Board& board, int player)
-{
-    auto [king_x, king_y] = find_king_position(board, player);
+    auto [king_x, king_y] = board.find_king_position(player);
     if (king_x == -1 || king_y == -1) return false;
 
     int opponent = -player;
     for (int x = 0; x < 8; ++x)
-	{
+    {
         for (int y = 0; y < 8; ++y)
-		{
+        {
             if ((opponent == 1 && board.get_piece(x, y) > 0) || 
                 (opponent == -1 && board.get_piece(x, y) < 0))
-			{
+            {
                 auto moves = get_moves(x, y, board.get_board());
-                for (const auto& move : moves)
-				{
+                for (const auto& move : moves) {
                     if (move.first == king_x && move.second == king_y)
-					{
+                    {
                         return true;
                     }
                 }
@@ -66,10 +29,46 @@ bool is_in_check(const Board& board, int player)
     return false;
 }
 
+// Validates castling for kingside or queenside
+bool can_castle(const Board& board, int player, bool is_kingside)
+{
+    int row = (player == 1) ? 7 : 0;
+    int king_col = 4;
+    int rook_col = is_kingside ? 7 : 0;
+
+    // Check if king and rook are in the correct starting positions
+    if (board.get_piece(row, king_col) != (player == 1 ? KING_WHITE : KING_BLACK) ||
+        board.get_piece(row, rook_col) != (player == 1 ? ROOK_WHITE : ROOK_BLACK))
+        return false;
+
+    // Check if path between king and rook is clear
+    int step = is_kingside ? 1 : -1;
+    for (int col = king_col + step; col != rook_col; col += step)
+    {
+        if (board.get_piece(row, col) != EMPTY) {
+            return false;
+        }
+    }
+
+    // Ensure that neither the king nor the rook has moved, and king does not pass through check
+    // (Additional tracking needed to enforce this)
+
+    return !is_check(board, player);
+}
+
+// Determines if a pawn is in a promotion position
+bool is_promotion(const Board& board, int x, int y)
+{
+    int piece = board.get_piece(x, y);
+    if (piece == PAWN_WHITE && x == 0) return true;  // White pawn reaches rank 8
+    if (piece == PAWN_BLACK && x == 7) return true;  // Black pawn reaches rank 1
+    return false;
+}
+
 // Checks if the player is in checkmate
 bool is_checkmate(const Board& board, int player)
 {
-    if (!is_in_check(board, player)) return false;
+    if (!board.is_in_check(player)) return false;
 
     for (int x = 0; x < 8; ++x)
 	{
@@ -83,7 +82,7 @@ bool is_checkmate(const Board& board, int player)
 				{
                     Board temp_board = board;
                     temp_board.move_piece(index_to_chess(x, y), index_to_chess(move.first, move.second));
-                    if (!is_in_check(temp_board, player))
+                    if (!temp_board.is_in_check(player))
 					{
                         return false;
                     }
@@ -97,7 +96,7 @@ bool is_checkmate(const Board& board, int player)
 // Checks if the player is in stalemate
 bool is_stalemate(const Board& board, int player)
 {
-    if (is_in_check(board, player)) return false;
+    if (board.is_in_check(player)) return false;
 
     for (int x = 0; x < 8; ++x)
 	{
@@ -111,7 +110,7 @@ bool is_stalemate(const Board& board, int player)
 				{
                     Board temp_board = board;
                     temp_board.move_piece(index_to_chess(x, y), index_to_chess(move.first, move.second));
-                    if (!is_in_check(temp_board, player))
+                    if (!temp_board.is_in_check(player))
 					{
                         return false;
                     }

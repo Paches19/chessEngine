@@ -84,43 +84,102 @@ bool Board::is_valid_move(int x1, int y1, int x2, int y2, int player) const
     return true;
 }
 
+// Helper function to find the player's king position on the board
+std::pair<int, int> Board::find_king_position(int player) const
+{
+    for (int x = 0; x < 8; ++x)
+	{
+        for (int y = 0; y < 8; ++y)
+		{
+            if (get_piece(x, y) == (player == 1 ? KING_WHITE : KING_BLACK))
+			{
+                return {x, y};
+            }
+        }
+    }
+    return {-1, -1}; // King not found (shouldn't happen in a valid game)
+}
+
+// Checks if the player's king is in check
+bool Board::is_in_check(int player) const
+{
+    auto [king_x, king_y] = find_king_position(player);
+    if (king_x == -1 || king_y == -1) return false;
+
+    int opponent = -player;
+    for (int x = 0; x < 8; ++x)
+	{
+        for (int y = 0; y < 8; ++y)
+		{
+            if ((opponent == 1 && get_piece(x, y) > 0) || 
+                (opponent == -1 && get_piece(x, y) < 0))
+			{
+                auto moves = get_moves(x, y, get_board());
+                for (const auto& move : moves)
+				{
+                    if (move.first == king_x && move.second == king_y)
+					{
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 bool Board::move_piece(const std::string& from, const std::string& to)
 {
-    auto [x1, y1] = chess_to_index(from);
-    auto [x2, y2] = chess_to_index(to);
+        auto [x1, y1] = chess_to_index(from);
+        auto [x2, y2] = chess_to_index(to);
 
-    int moving_piece = board[x1][y1];
-    int target_piece = board[x2][y2];
+        int moving_piece = board[x1][y1];
+        int target_piece = board[x2][y2];
 
-    if (moving_piece == EMPTY)
-    {
-        std::cout << "No piece at the origin position.\n";
-        return false;
-    }
+        if (moving_piece == EMPTY)
+        {
+            std::cout << "No piece at the origin position.\n";
+            return false;
+        }
 
-    if (!is_valid_move(x1, y1, x2, y2, turn)) return false;
+        // Check if it's the player's turn and if the move is valid
+        if (!is_valid_move(x1, y1, x2, y2, turn)) return false;
 
-    auto moves = get_moves(x1, y1, board);
+        auto moves = get_moves(x1, y1, board);
 
-    if (std::find(moves.begin(), moves.end(), std::make_pair(x2, y2))
-        != moves.end())
-    {
-        // **50-Move Rule Handling**: Reset the counter if a pawn moves or a capture is made
-        if (moving_piece == PAWN_WHITE || moving_piece == PAWN_BLACK ||
-            target_piece != EMPTY)
-            fifty_move_counter = 0;
-        else
-            ++fifty_move_counter;
+        // Ensure the target square is a valid move
+        if (std::find(moves.begin(), moves.end(), std::make_pair(x2, y2)) == moves.end())
+        {
+            std::cout << "Invalid move for this piece.\n";
+            return false;
+        }
 
-        // Execute the move
+        // Simulate the move on a temporary board to check for self-check
+        Board temp_board = *this;
+        temp_board.board[x2][y2] = moving_piece;
+        temp_board.board[x1][y1] = EMPTY;
+
+        if (is_in_check(turn))
+        {
+            std::cout << "Move would leave the king in check.\n";
+            return false;
+        }
+
+        // If the simulated move does not leave the player in check, execute it
         board[x2][y2] = moving_piece;
         board[x1][y1] = EMPTY;
 
-        // Record the new board state in position history for threefold repetition
+        // Handle 50-move rule and threefold repetition tracking
+        if (moving_piece == PAWN_WHITE || moving_piece == PAWN_BLACK || target_piece != EMPTY)
+            fifty_move_counter = 0; // Reset the 50-move counter
+        else
+            ++fifty_move_counter; // Increment if no pawn move or capture
+
+        // Track the board state for threefold repetition
         std::string state = board_to_string();
         ++position_history[state];
 
-        // Only record the move if history is enabled
+        // Record history if enabled
         if (enable_history)
         {
             MoveRecord record;
@@ -134,14 +193,10 @@ bool Board::move_piece(const std::string& from, const std::string& to)
         else
             ++move_count;
 
+        // Toggle the turn
         turn = -turn;
+
         return true;
-    }
-    else
-    {
-        std::cout << "Invalid move for this piece.\n";
-        return false;
-    }
 }
 
 // Displays the history of moves, including move number, player, and move time

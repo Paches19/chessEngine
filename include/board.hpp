@@ -35,6 +35,8 @@ class Board
         int get_fifty_move_counter() const { return fifty_move_counter; }
         bool is_threefold_repetition() const;
         std::string board_to_string() const;
+        bool is_in_check(int player) const;
+        std::pair<int, int> find_king_position(int player) const;
 
     private:
         std::vector<std::vector<int>> board;
